@@ -1,13 +1,10 @@
 {
   lib,
   rustPlatform,
-  callPackage,
-  runCommand,
   installShellFiles,
   git,
   gitRev ? null,
-  grammarOverlays ? [],
-  includeGrammarIf ? _: true,
+  runtimeDir,
 }: let
   fs = lib.fileset;
 
@@ -24,18 +21,6 @@
     (fs.fileFilter (file: file.hasExt "md") ./.)
     (fs.fileFilter (file: file.hasExt "nix") ./.)
   ]);
-
-  # Next we actually need to build the grammars and the runtime directory
-  # that they reside in. It is built by calling the derivation in the
-  # grammars.nix file, then taking the runtime directory in the git repo
-  # and hooking symlinks up to it.
-  grammars = callPackage ./grammars.nix {inherit grammarOverlays includeGrammarIf;};
-  runtimeDir = runCommand "helix-runtime" {} ''
-    mkdir -p $out
-    ln -s ${./runtime}/* $out
-    rm -r $out/grammars
-    ln -s ${grammars} $out/grammars
-  '';
 in
   rustPlatform.buildRustPackage (self: {
     cargoLock = {
@@ -69,7 +54,7 @@ in
     strictDeps = true;
 
     # Sets the Helix runtime dir to the grammars
-    env.HELIX_DEFAULT_RUNTIME = "${runtimeDir}";
+    env.HELIX_DEFAULT_RUNTIME = "${lib.makeBinPath runtimeDir}";
 
     # Get all the application stuff in the output directory.
     postInstall = ''

@@ -88,8 +88,20 @@
       pkgsFor;
 
     overlays = {
-      helix = final: prev: {
-        helix = final.callPackage ./default.nix {inherit gitRev;};
+      helix = final: prev: let
+        # We actually need to build the grammars and the runtime directory
+        # that they reside in. It is built by calling the derivation in the
+        # grammars.nix file, then taking the runtime directory in the git repo
+        # and hooking symlinks up to it.
+        grammars = final.callPackage ./grammars.nix {};
+        runtimeDir = final.runCommand "helix-runtime" {} ''
+          mkdir -p $out
+          ln -s ${./runtime}/* $out
+          rm -r $out/grammars
+          ln -s ${grammars} $out/grammars
+        '';
+      in {
+        helix = final.callPackage ./default.nix {inherit gitRev runtimeDir;};
       };
 
       default = self.overlays.helix;
